@@ -1,0 +1,61 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int main()
+{
+    int rows, cols;
+    int i, j;
+    int choice;
+
+    printf("Enter number of rows: ");
+    scanf("%d", &rows);
+    printf("Enter number of columns: ");
+    scanf("%d", &cols);
+
+    int **arr = (int **)malloc(rows * sizeof(int *));
+    for(i = 0; i < rows; i++)
+        arr[i] = (int *)malloc(cols * sizeof(int));
+    printf("Enter matrix elements:\n");
+    for(i = 0; i < rows; i++)
+    {
+        for(j = 0; j < cols; j++)
+            scanf("%d", &arr[i][j]);
+    }
+    printf(" Saddle point count\n");
+    int count = 0;
+#pragma omp parallel for reduction(+:count)
+        for(i = 0; i < rows; i++)
+        {
+            for(j = 0; j < cols; j++)
+            {
+                int isMinRow = 1;
+                int isMaxCol = 1;
+                int k;
+                for(k = 0; k < cols; k++)
+                {
+                    if(arr[i][k] < arr[i][j])
+                    {
+                        isMinRow = 0;
+                        break;
+                    }
+                }
+                for(k = 0; k < rows; k++)
+                {
+                    if(arr[k][j] > arr[i][j])
+                    {
+                        isMaxCol = 0;
+                        break;
+                    }
+                }
+                if(isMinRow == 1 && isMaxCol == 1)
+                    count++;
+            }
+        }
+        printf("Number of Saddle Points = %d\n", count);
+
+    for(i = 0; i < rows; i++)
+        free(arr[i]);
+    free(arr);
+    return 0;
+}
