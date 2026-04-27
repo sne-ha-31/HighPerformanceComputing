@@ -1,0 +1,79 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+#define N 20
+
+int queue[N];
+int front = 0, rear = 0;
+int data[N];
+double global_sum = 0;
+omp_lock_t lock;
+
+int main()
+{
+    omp_set_num_threads(4);
+    omp_init_lock(&lock);
+
+    #pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+        if (id % 2 == 0)
+        {
+            for (int i = 0; i < N/2; i++)
+            {
+                int value = rand() % 10 + 1;
+                omp_set_lock(&lock);
+                queue[rear++] = value;
+                omp_unset_lock(&lock);
+            }
+        }
+        else
+        {
+            int count = 0;
+            while (count < N/2)
+            {
+                int value = -1;
+
+                omp_set_lock(&lock);
+                if (front < rear)
+                    value = queue[front++];
+                omp_unset_lock(&lock);
+
+                if (value != -1)
+                {
+                    int index = (id/2) * (N/2) + count;
+                    data[index] = value;
+                    #pragma omp atomic
+                    global_sum += value;
+                    count++;
+                }
+            }
+        }
+    }
+
+    printf("Elements:\n");
+    #pragma omp parallel for
+    for (int i = 0; i < N; i++)
+    {
+        #pragma omp critical
+        printf("%d ", data[i]);
+    }
+    printf("\n");
+
+    double mean = global_sum / N;
+    printf("Mean = %.2f\n", mean);
+
+    double variance = 0;
+    #pragma omp parallel for reduction(+:variance)
+    for (int i = 0; i < N; i++)
+    {
+        double diff = data[i] - mean;
+        variance += diff * diff;
+    }
+    variance = variance / N;
+    printf("Variance = %.2f\n", variance);
+
+    omp_destroy_lock(&lock);
+    return 0;
+}
