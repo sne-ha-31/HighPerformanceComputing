@@ -1,0 +1,72 @@
+#include <stdio.h>
+#include <omp.h>
+
+int main()
+{
+    int n, i, choice;
+    double a, b, h, sum = 0.0, result;
+
+    printf("Enter lower limit (a): ");
+    scanf("%lf", &a);
+    printf("Enter upper limit (b): ");
+    scanf("%lf", &b);
+    printf("Enter number of intervals (n): ");
+    scanf("%d", &n);
+
+    h = (b - a) / n;
+
+    printf("\nChoose Method:\n");
+    printf("1. Parallel for (Race Condition)\n");
+    printf("2. Parallel for with Reduction\n");
+    printf("3. Parallel with Critical\n");
+    printf("Enter your choice: ");
+    scanf("%d", &choice);
+
+    sum = 0.0;
+
+    switch(choice)
+    {
+        case 1:
+            #pragma omp parallel for
+            for(i = 1; i < n; i++)
+            {
+                double x = a + i * h;
+                sum += x * x;
+            }
+            result = h * (((a*a) + (b*b)) / 2.0 + sum);
+            printf("Result = %lf\n", result);
+            break;
+        case 2:
+            #pragma omp parallel for reduction(+:sum)
+            for(i = 1; i < n; i++)
+            {
+                double x = a + i * h;
+                sum += x * x;
+            }
+            result = h * (((a*a) + (b*b)) / 2.0 + sum);
+            printf("Result = %lf\n", result);
+            break;
+        case 3:
+            #pragma omp parallel
+            {
+                double local_sum = 0.0;
+                #pragma omp for
+                for(i = 1; i < n; i++)
+                {
+                    double x = a + i * h;
+                    local_sum += x * x;
+                }
+                #pragma omp critical
+                {
+                    sum += local_sum;
+                }
+            }
+            result = h * (((a*a) + (b*b)) / 2.0 + sum);
+            printf("Result = %lf\n", result);
+            break;
+        default:
+            printf("Invalid Choice!\n");
+    }
+
+    return 0;
+}
