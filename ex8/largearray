@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int main()
+{
+    int *A, *B, *C;
+    int SIZE, i;
+
+    printf("\n****ADDITION OF TWO ARRAYS****\n");
+    printf("\nEnter size of array: ");
+    scanf("%d", &SIZE);
+
+    A = (int*) malloc(SIZE * sizeof(int));
+    B = (int*) malloc(SIZE * sizeof(int));
+    C = (int*) malloc(SIZE * sizeof(int));
+
+    for(i = 0; i < SIZE; i++)
+    {
+        A[i] = i;
+        B[i] = i * 2;
+    }
+
+    #pragma omp parallel for num_threads(4)
+    for(i = 0; i < SIZE; i++)
+    {
+        C[i] = A[i] + B[i];
+    }
+
+    printf("First 50 elements of result:\n");
+    for(i = 0; i < SIZE && i < 50; i++)
+    {
+        printf("%d ", C[i]);
+    }
+    printf("\n\n");
+
+    free(A);
+    free(B);
+    free(C);
+
+    return 0;
+}
