@@ -1,0 +1,139 @@
+#include <stdio.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+
+double get_ms(struct timespec start, struct timespec end) {
+    return ((double)end.tv_sec - start.tv_sec) * 1000.0 +
+           ((double)end.tv_nsec - start.tv_nsec) / 1000000.0;
+}
+
+int get_Det(int **mat, int n){
+    double det = 1;
+    int i, j, k;
+    for(i=0;i<n;i++){
+        if (mat[i][i] == 0) return 0;
+        for(j=i+1;j<n;j++){
+            double factor = (double)mat[j][i]/mat[i][i];
+            for(k=i;k<n;k++)
+                mat[j][k] -= factor*mat[i][k];
+        }
+        det *= mat[i][i];
+    }
+    return (int)det;
+}
+
+int main(){
+   int m1, n1, m2, n2;
+   int i, j, k;
+   int sum, sid;
+   double *max_times;
+   struct timespec start, end;
+
+   sid = shmget(1082, 4 * sizeof(double), IPC_CREAT | 0777);
+   max_times = (double*)shmat(sid, 0, 0);
+
+   printf("\nEnter matrixA size [m,n] : ");
+   if(scanf("%d %d", &m1, &n1) != 2)
+      return 1;
+   printf("Enter matrixB size [m,n] : ");
+   if(scanf("%d %d", &m2, &n2) != 2)
+      return 1;
+
+   if(!(m1 == m2 && n1 == n2) || (m2 != n1) || (m1 != n1)){
+       printf("Matrix sizes are incompatible for the requested operations!\n");
+       shmctl(sid, IPC_RMID, 0);
+       return 0;
+   }
+
+   int **A = (int **)malloc(m1 * sizeof(int*));
+   int **B = (int **)malloc(m2 * sizeof(int*));
+   int **C = (int **)malloc(m1 * sizeof(int*));
+   for(i=0; i<m1; i++)
+      A[i] = (int *)malloc(n1 * sizeof(int));
+   for(i=0; i<m2; i++)
+      B[i] = (int *)malloc(n2 * sizeof(int));
+   for(i=0; i<m1; i++)
+      C[i] = (int *)malloc(n2 * sizeof(int));
+
+   for(i=0; i<m1; i++)
+      for(j=0; j<n1; j++)
+         A[i][j] = rand() % 5;
+   for(i=0; i<m2; i++)
+      for(j=0; j<n2; j++)
+         B[i][j] = rand() % 5;
+   int pid1 = fork();
+   if(pid1 == 0){
+        clock_gettime(CLOCK_MONOTONIC, &start);
+        for(i=0; i<m1; i++)
+            for(j=0; j<n1; j++)
+               C[i][j] = A[i][j] + B[i][j];
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        max_times[0] = get_ms(start, end);
+        exit(0);
+    }
+   int pid2 = fork();
+   if(pid2 == 0){
+        clock_gettime(CLOCK_MONOTONIC, &start);
+        for(i=0; i<m1; i++)
+            for(j=0; j<n1; j++)
+               C[i][j] = A[i][j] - B[i][j];
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        max_times[1] = get_ms(start, end);
+        exit(0);
+    }
+
+    int pid3 = fork();
+    if(pid3 == 0){
+        clock_gettime(CLOCK_MONOTONIC, &start);
+        for(i=0; i<m1; i++){
+            for(j=0; j<m2; j++){
+                sum = 0;
+                for(k=0; k<n1; k++) sum += A[i][k] * B[k][j];
+                C[i][j] = sum;
+            }
+        }
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        max_times[2] = get_ms(start, end);
+        exit(0);
+    }
+    int pid4 = fork();
+    if(pid4 == 0){
+        clock_gettime(CLOCK_MONOTONIC, &start);
+        get_Det(A, m1);
+        get_Det(B, m2);
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        max_times[3] = get_ms(start, end);
+        exit(0);
+    }
+
+    for(i=0; i<4; i++) wait(NULL);
+
+    double max_val = max_times[0];
+    for(i=1; i<4; i++){
+        if(max_val < max_times[i])
+           max_val = max_times[i];
+    }
+
+    printf("\nTime taken: %f ms\n\n", max_val);
+
+    shmdt(max_times);
+    shmctl(sid, IPC_RMID, 0);
+
+    for(i=0; i<m1; i++) {
+       free(A[i]); free(C[i]);
+    }
+    for(i=0; i<m2; i++) {
+       free(B[i]);
+    }
+    free(A);
+    free(B);
+    free(C);
+
+    return 0;
+}
+
