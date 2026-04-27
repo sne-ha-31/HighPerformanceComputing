@@ -1,0 +1,48 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int main()
+{
+    int rows, cols;
+    int i, j;
+    int choice;
+
+    printf("Enter number of rows: ");
+    scanf("%d", &rows);
+    printf("Enter number of columns: ");
+    scanf("%d", &cols);
+
+    int **arr = (int **)malloc(rows * sizeof(int *));
+    for(i = 0; i < rows; i++)
+        arr[i] = (int *)malloc(cols * sizeof(int));
+    printf("Enter matrix elements:\n");
+    for(i = 0; i < rows; i++)
+    {
+        for(j = 0; j < cols; j++)
+            scanf("%d", &arr[i][j]);
+    }
+
+
+    printf(" Sum of elements divisible by K\n");
+        int K;
+        int sum = 0;
+        printf("Enter value of K: ");
+        scanf("%d", &K);
+        #pragma omp parallel for reduction(+:sum)
+        for(i = 0; i < rows; i++)
+        {
+            for(j = 0; j < cols; j++)
+            {
+                if(arr[i][j] % K == 0)
+                    sum += arr[i][j];
+            }
+        }
+        printf("Sum of elements divisible by %d = %d\n", K, sum);
+
+
+    for(i = 0; i < rows; i++)
+        free(arr[i]);
+    free(arr);
+    return 0;
+}
